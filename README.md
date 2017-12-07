@@ -9,48 +9,57 @@ A live version is available at: http://play-with-docker.com/
 
 ## Requirements
 
-Docker 1.13+ is required. You can use docker-machine with the following command:
-
-```
-docker-machine create -d virtualbox --virtualbox-boot2docker-url https://github.com/boot2docker/boot2docker/releases/download/v1.13.0-rc1/boot2docker.iso <name>
-```
+Docker 1.13+ is required. 
 
 The docker daemon needs to run in swarm mode because PWD uses overlay attachable networks. For that
-just run `docker swarm init`.
+just run  `docker swarm init` in the destination daemon.
 
 It's also necessary to manually load the IPVS kernel module because as swarms are created in `dind`, 
 the daemon won't load it automatically. Run the following command for that purpose: `sudo modprobe xt_ipvs`
 
-If you are developing, there is a `Makefile` file with 2 targets that can set the whole environment for you (using docker-machine and virtual box).
-Just run once `make prepare`, which will create & prepare the docker-machine environment.
-Additionally, every time you want to start you environment run `make start`.
-And to start the application on a container on the docker machine host, run: `eval $(docker-machine env pwd) && docker-compose up`
 
-
-## Installation
+## Development
 
 Start the Docker daemon on your machine and run `docker pull franela/dind`. 
 
-1) Install go 1.7.1 with `brew` on Mac or through a package manager.
+1) Install go 1.7.1+ with `brew` on Mac or through a package manager.
 
-2) `go get -v -d -t ./...`
+2) Install [dep](https://github.com/golang/dep) and run `dep ensure` to pull dependencies
 
 3) Start PWD as a container with docker-compose up.
 
-5) Point to http://localhost:3000/ and click "New Instance"
+5) Point to http://localhost and click "New Instance"
 
 Notes:
 
 * There is a hard-coded limit to 5 Docker playgrounds per session. After 4 hours sessions are deleted.
 * If you want to override the DIND version or image then set the environmental variable i.e.
   `DIND_IMAGE=franela/docker<version>-rc:dind`. Take into account that you can't use standard `dind` images, only [franela](https://hub.docker.com/r/franela/) ones work.
+  
+### Port forwarding
 
+In order for port forwarding to work correctly in development you need to make `*.localhost` to resolve to `127.0.0.1`. That way when you try to access to `pwd10-0-0-1-8080.host1.localhost`, then you're forwarded correctly to your local PWD server.
+
+You can achieve this by setting up a `dnsmasq` server (you can run it in a docker container also) and adding the following configuration:
+
+```
+address=/localhost/127.0.0.1
+```
+
+Don't forget to change your computer default DNS to use the dnsmasq server to resolve.
+
+### Building the dind image myself.
+
+If you want to make changes to the `dind` image being used, make your changes to the `Dockerfile.dind` file and then build it using this command: `docker build --build-arg docker_storage_driver=vfs -f Dockerfile.dind -t franela/dind .` 
 
 ## FAQ
 
 ### How can I connect to a published port from the outside world?
 
-~~We're planning to setup a reverse proxy that handles redirection automatically, in the meantime you can use [ngrok](https://ngrok.com) within PWD running `docker run --name supergrok -d jpetazzo/supergrok` then `docker logs --follow supergrok` , it will give you a ngrok URL, now you can go to that URL and add the IP+port that you want to connect to… e.g. if your PWD instance is 10.0.42.3, you can go to http://xxxxxx.ngrok.io/10.0.42.3:8000 (where the xxxxxx is given to you in the supergrok logs).~~
 
-If you need to access your services from outside, use the following URL pattern `http://ip<underscore_ip>-<port>.play-with-docker.com` (i.e: http://ip10_2_135_3-80.play-with-docker.com/).
+If you need to access your services from outside, use the following URL pattern `http://ip<hyphen-ip>-<session_jd>-<port>.direct.labs.play-with-docker.com` (i.e: http://ip-2-135-3-b8ir6vbg5vr00095iil0-8080.direct.labs.play-with-docker.com).
 
+### Why is PWD running in ports 80 and 443?, Can I change that?.
+
+No, it needs to run on those ports for DNS resolve to work. Ideas or suggestions about how to improve this
+are welcome
